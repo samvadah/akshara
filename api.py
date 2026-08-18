@@ -8,7 +8,8 @@ app = FastAPI()
 
 @app.get("/vinyaasa")
 async def api_vinyaasa(
-    word: str = Query(..., description="The word to compute the vinyaasa for")
+    word: str = Query(..., description="The word to compute the vinyaasa for"),
+    count: bool = Query(False, description="Include total character count")
 ):
     """Return the vinyaasa of a word."""
     try:
@@ -18,22 +19,38 @@ async def api_vinyaasa(
         vinyaasa = None
         status = "failure"
 
-    return {"vinyaasa": vinyaasa, "status": status}
+    response = {"vinyaasa": vinyaasa, "status": status}
+    
+    if count:
+        response["count"] = len(vinyaasa) if vinyaasa is not None else None
+
+    return response
 
 
 @app.get("/akshara")
 async def api_akshara(
-    word: str = Query(..., description="The word to compute the akshara for")
+    word: str = Query(..., description="The word to compute the akshara for"),
+    count: bool = Query(False, description="Include total character count")
 ):
     """Return the akshara of a word."""
-
     try:
         akshara = vk.get_akshara(word)
         status = "success"
     except AssertionError:
-        return {"akshara": None, "status": "failure"}
+        response = {"akshara": None, "status": "failure"}
+        if count:
+            response["count"] = None
+        return response
 
-    return {"akshara": akshara, "status": status}
+    response = {"akshara": akshara, "status": status}
+    
+    if count:
+        try:
+            response["count"] = len(vk.get_vinyaasa(word))
+        except AssertionError:
+            response["count"] = None
+
+    return response
 
 
 @app.get("/shabda")
@@ -52,3 +69,18 @@ async def api_shabda(
         status = "failure"
 
     return {"word": shabda, "status": status}
+
+
+@app.get("/count")
+async def api_count(
+    word: str = Query(..., description="The word or sentence to compute the character count for")
+):
+    """Return the total character count including spaces and dandas."""
+    try:
+        char_count = len(vk.get_vinyaasa(word))
+        status = "success"
+    except AssertionError:
+        char_count = None
+        status = "failure"
+
+    return {"count": char_count, "status": status}
